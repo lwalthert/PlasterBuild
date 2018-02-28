@@ -27,7 +27,13 @@
                    type='user-fullname'
                    prompt='Enter your full name'
                    store='text' />
-
+        <parameter name='FunctionFolders' type = 'multichoice' prompt='Please select folders to include' default='0,1,2'>
+                <choice label='&amp;Public' value='Public' help='Adds a public folder to module root'/>
+                <choice label='&amp;Internal' value='Internal' help='Adds a internal folder to module root'/>
+                <choice label='&amp;Classes' value='Classes' help='Adds a classes folder to module root'/>
+                <choice label='&amp;Binaries' value='Binaries' help='Adds a binaries folder to module root'/>
+                <choice label='&amp;DSCResources' value='DSCResources' help='Adds a DSCResource folder to module root'/>
+        </parameter>
         <parameter name='License'
                    type='choice'
                    prompt='Select a license (see http://choosealicense.com for help choosing):'
@@ -103,6 +109,12 @@
               destination=''/>
         <file source='src\Module.psm1'
               destination='src\${PLASTER_PARAM_ModuleName}.psm1'/>
+        <message>Creating you folders for module: </message>
+        <file source='' destination='${PLASTER_PARAM_ModuleName}\src\public\' condition='$PLASTER_PARAM_FunctionFolders -contains "Public"'/>
+        <file source='' destination='${PLASTER_PARAM_ModuleName}\src\internal\' condition='$PLASTER_PARAM_FunctionFolders -contains "Internal"'/>
+        <file source='' destination='${PLASTER_PARAM_ModuleName}\src\classes\' condition='$PLASTER_PARAM_FunctionFolders -contains "Classes"'/>
+        <file source='' destination='${PLASTER_PARAM_ModuleName}\src\binaries\' condition='$PLASTER_PARAM_FunctionFolders -contains "Binaries"'/>
+        <file source='' destination='${PLASTER_PARAM_ModuleName}\src\dscresources\' condition='$PLASTER_PARAM_FunctionFolders -contains "DSCResources"'/>
         <file source='ScriptAnalyzerSettings.psd1'
               destination=''/>
 
