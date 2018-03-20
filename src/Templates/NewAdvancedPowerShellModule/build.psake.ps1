@@ -102,7 +102,8 @@ Task Clean -depends Init -requiredVariables OutDir {
 Task StageFiles -depends Init, Clean, BeforeStageFiles, CoreStageFiles, AfterStageFiles {
 }
 
-Task CoreStageFiles -requiredVariables ModuleOutDir, SrcRootDir {
+# Synopsis: Assemble the module for release
+task CoreStageFiles -requiredVariables ModuleOutDir, SrcRootDir {
     if (!(Test-Path -LiteralPath $ModuleOutDir)) {
         New-Item $ModuleOutDir -ItemType Directory -Verbose:$VerbosePreference > $null
     }
@@ -110,8 +111,82 @@ Task CoreStageFiles -requiredVariables ModuleOutDir, SrcRootDir {
         Write-Verbose "$($psake.context.currentTaskName) - directory already exists '$ModuleOutDir'."
     }
 
-    Copy-Item -Path $SrcRootDir\* -Destination $ModuleOutDir -Recurse -Exclude $Exclude -Verbose:$VerbosePreference
+    Write-Verbose "Assembling module psm1 file"
+    $ScratchPath = $SrcRootDir
+    $StageReleasePath = $ModuleOutDir
+    $ReleaseModule = "$($StageReleasePath)\$($Script:BuildEnv.ModuleToBuild).psm1"
+
+    if ($BuildEnv.OptionCombineFiles) {
+        Write-Verbose "Option to combine PSM1 is enabled, combining source files now..."
+
+        $CombineFiles = ''
+        $PreloadFilePath = (Join-Path $ScratchPath "other\PreLoad.ps1")
+        if (Test-Path $PreloadFilePath) {
+            Write-Verbose 'Starting with Preload.ps1'
+            $CombineFiles += "## Pre-Loaded Module code ##`r`n`r`n"
+            Get-childitem $PreloadFilePath | ForEach-Object {
+                $CombineFiles += (Get-content $_ -Raw) + "`r`n`r`n"
+            }
+        }
+        Write-Verbose 'Adding the private source files:'
+
+        $CombineFiles += "## PRIVATE MODULE FUNCTIONS AND DATA ##`r`n`r`n"
+
+        Get-childitem  (Join-Path $ScratchPath "private\*.ps1") | ForEach-Object {
+            Write-Verbose $_.Name -Level 4
+            $CombineFiles += (Get-content $_ -Raw) + "`r`n`r`n"
+        }
+
+        Write-Verbose 'Adding the public source files:'
+
+        $CombineFiles += "## PUBLIC MODULE FUNCTIONS AND DATA ##`r`n`r`n"
+        Get-childitem  (Join-Path $ScratchPath "public\*.ps1") | ForEach-Object {
+            Write-Verbose $_.Name -Level 4
+            $CombineFiles += (Get-content $_ -Raw) + "`r`n`r`n"
+        }
+
+        Write-Verbose 'Finishing with Postload.ps1'
+        $CombineFiles += "## Post-Load Module code ##`r`n`r`n"
+        $PostLoadPath = (Join-Path $ScratchPath "other\PostLoad.ps1")
+        if (Test-Path $PostLoadPath) {
+            Get-childitem  $PostLoadPath | ForEach-Object {
+                $CombineFiles += (Get-content $_ -Raw) + "`r`n`r`n"
+            }
+        }
+
+        Set-Content -Path $ReleaseModule -Value $CombineFiles -Encoding $BuildEnv.Encoding
+    }
+    else {
+        # Not implemented
+        # Write-Verbose 'Option to combine PSM1 is NOT enabled, copying over file structure now...' -Level 2
+        # Copy-Item -Path (Join-Path $ScratchPath $Script:BuildEnv.OtherModuleSource) -Recurse -Destination $StageReleasePath -Force
+        # Copy-Item -Path (Join-Path $ScratchPath $Script:BuildEnv.PrivateFunctionSource) -Recurse -Destination $StageReleasePath -Force
+        # Copy-Item -Path (Join-Path $ScratchPath $Script:BuildEnv.PublicFunctionSource) -Recurse -Destination $StageReleasePath -Force
+        # Copy-Item -Path (Join-Path $ScratchPath $Script:BuildEnv.ModuleToBuild) -Destination $StageReleasePath -Force
+    }
+
+    # Not implemented
+    # if (($Script:BuildEnv.AdditionalModulePaths).Count -gt 0) {
+    #     Write-Verbose 'Copying over additional module paths now (if they exist).'
+    #     $Script:BuildEnv.AdditionalModulePaths | ForEach-Object {
+    #         if (Test-Path $_) {
+    #             Write-Verbose "Copying $_"
+    #             Copy-Item -Path $_ -Recurse -Destination $StageReleasePath -Force
+    #         }
+    #     }
+    # }
 }
+
+# Task CoreStageFiles -requiredVariables ModuleOutDir, SrcRootDir {
+#     if (!(Test-Path -LiteralPath $ModuleOutDir)) {
+#         New-Item $ModuleOutDir -ItemType Directory -Verbose:$VerbosePreference > $null
+#     }
+#     else {
+#         Write-Verbose "$($psake.context.currentTaskName) - directory already exists '$ModuleOutDir'."
+#     }
+
+#     Copy-Item -Path $SrcRootDir\* -Destination $ModuleOutDir -Recurse -Exclude $Exclude -Verbose:$VerbosePreference
+# }
 
 Task Build -depends Init, Clean, BeforeBuild, StageFiles, Analyze, Sign, AfterBuild {
 }
